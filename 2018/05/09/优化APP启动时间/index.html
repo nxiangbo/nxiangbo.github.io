@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="何夜无月，何处无竹柏，但少闲人，如吾两人者耳"><title>优化APP启动时间 | 学而时习之</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/8.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">优化APP启动时间</h1><a id="logo" href="/.">学而时习之</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">优化APP启动时间</h1><div class="post-meta">May 9, 2018<span> | </span><span class="category"><a href="/categories/Android/">Android</a></span></div><div class="post-content"><p>用户希望APP可以快速响应并启动。如果APP启动较慢，则严重影响用户体验，甚至导致用户流失。</p>
+<p>本文将讲述如何优化APP启动时间。本文首先阐述APP启动过程；然后讨论如何诊断APP启动性能问题；最后m描述一些常见的APP启动时间过慢的问题，并提出一些解决方法。</p>
+<h2 id="APP启动的内部原理"><a href="#APP启动的内部原理" class="headerlink" title="APP启动的内部原理"></a>APP启动的内部原理</h2><p>APP启动有3种启动方式：cold start，warm start，hot start。每种启动方式都会影响用户启动APP的时间。在cold start中，APP的启动需要从头开始。而对其他两种启动方式，系统只需要将正在运行的APP从后台加载到前台。我们建议总是假设以cold start方式作为优化对象。这样做也可以提高warm start 和 hot start的启动性能。</p>
+<p>为了提高APP启动速度，需要理解在每种启动方式中系统和APP之间发生了什么，做了哪些交互。</p>
+<h3 id="Cold-Start"><a href="#Cold-Start" class="headerlink" title="Cold Start"></a>Cold Start</h3><p>Cold start是指APP需要从头开始启动，即在开始前，系统进程还没创建APP的进程。cold start一般是在这些情况下发生，即设备启动后或者APP被系统kill掉后，第一次启动APP。在这种类型的启动方式下，缩短启动时间是一个挑战，因为，与其他启动状态相比，系统和APP有更多的工作要做。</p>
+<p>在cold start开始时，系统有三个任务。如下所示：</p>
+<ol>
+<li>加载并启动APP。</li>
+<li>启动后立即显示APP的空白起始window。</li>
+<li>创建APP进程。</li>
+</ol>
+<p>只要系统创建了APP进程，APP就负责下一个阶段的工作。如下所示：</p>
+<ol>
+<li>创建APP对象。</li>
+<li>启动主线程。</li>
+<li>创建Main Activity。</li>
+<li>加载View。</li>
+<li>配置屏幕。</li>
+<li>执行初始绘制。</li>
+</ol>
+<p>一旦APP进程完成第一次绘制，系统进程便会将当前显示的背景窗口换掉，并将其替换为Main Activity。此时，用户就可以使用APP。<br>下图显示了系统和应用程序如何在彼此之间切换工作。<br><img src="/images/APP性能优化01.png" alt=""></p>
+<p>性能问题是在创建APP和创建Activity期间引起的。</p>
+<h4 id="创建Application"><a href="#创建Application" class="headerlink" title="创建Application"></a>创建Application</h4><p>当你的应用程序启动时，空白的开始窗口将保留在屏幕上，直到系统第一次完成绘制应用程序。 此时，系统进程会为应用程序换掉启动窗口，允许用户开始与应用程序进行交互。</p>
+<p>如果你在自己的应用程序中重载了<code>Application.onCreate（）</code>，系统会调用你的Application的<code>onCreate（）</code>方法。 之后，应用程序会创建主线程（也称为UI线程），并创建Main Activity。</p>
+<h4 id="创建Activity"><a href="#创建Activity" class="headerlink" title="创建Activity"></a>创建Activity</h4><p>APP进程创建Activity后，Activity执行以下操作：</p>
+<ol>
+<li>初始化values</li>
+<li>调用构造方法</li>
+<li>根据当前生命周期状态调用相应的方法，例如<code>onCreate()</code>方法。</li>
+</ol>
+<p>通常，<code>onCreate（）</code>方法对加载时间影响最大，因为它以最高开销执行工作：加载和扩充视图，以及初始化要运行的活动所需的对象。</p>
+<h3 id="Hot-Start"><a href="#Hot-Start" class="headerlink" title="Hot Start"></a>Hot Start</h3><p>应用程序的hot start方式比较简单，开销也比cold start低。在hot start过程中，系统只需要将你的Activity加载到前台。如果你的应用程序的所有Activity仍驻留在内存中，则该应用程序可以避免重复对象初始化，布局加载和渲染。</p>
+<p>但是，如果某些内存为了响应某些事件（例如<code>onTrimMemory（）</code>）而被回收，则需要重新创建这些对象。</p>
+<p>Hot start与cold start相同的是：在APP完成Activity的渲染之前，系统进程会显示一个空白的屏幕。</p>
+<h3 id="Warm-Start"><a href="#Warm-Start" class="headerlink" title="Warm Start"></a>Warm Start</h3><p>warm start 包含了cold start过程中的一些子集。同时，warm start 的开销比hot start低。许多潜在的状态都可以看成warm start。例如：</p>
+<ul>
+<li>用户退出APP，但又重启APP。此时，进程仍在运行，但是APP必须通过调用<code>onCreate（）</code>从头开始创建Activity。</li>
+<li>系统消耗了APP，然后用户重新启动。进程和Activity需要重新创建，但是任务可以从已保存的bundle中加载。</li>
+</ul>
+<h2 id="发现并诊断问题"><a href="#发现并诊断问题" class="headerlink" title="发现并诊断问题"></a>发现并诊断问题</h2><p>Android提供了几种方法去发现并诊断APP中存在的问题。Android vitals可以提醒你APP出现了问题，诊断工具可以帮你检测问题所在。</p>
+<h3 id="Android-vitals"><a href="#Android-vitals" class="headerlink" title="Android vitals"></a>Android vitals</h3><p>Android vitals可以通过Play Console提醒你APP的启动时间过长，从而帮助提高应用的性能。在以下情况下， Android vitals认为你的应用程序的启动时间过长：</p>
+<ul>
+<li>cold startup 过程消耗5s或更长时间</li>
+<li>warm startup 过程消耗2s或更长时间</li>
+<li>hot startup 过程消耗1.5s或更长时间</li>
+</ul>
+<h3 id="诊断启动时间较慢的问题"><a href="#诊断启动时间较慢的问题" class="headerlink" title="诊断启动时间较慢的问题"></a>诊断启动时间较慢的问题</h3><p>为了正确确定APP启动时间性能，你可以跟踪显示启动应用程序所需时间。</p>
+<h4 id="初始化显示时间（Time-to-initial-display）"><a href="#初始化显示时间（Time-to-initial-display）" class="headerlink" title="初始化显示时间（Time to initial display）"></a>初始化显示时间（Time to initial display）</h4><p>在Android 4.4及以上系统，logcat会输出一个<code>Displayed</code>值。此值表示加载进程和完成在屏幕上绘制Activity之间所需要的时间。 在这段时间内，包含以下一系列事件：</p>
+<ol>
+<li>启动进程</li>
+<li>初始化对象</li>
+<li>创建并初始化Activity</li>
+<li>加载布局</li>
+<li>你一次绘制你的APP<br>Log一般显示如下：<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ActivityManager: Displayed com.android.myexample/.StartupTiming: +3s534ms</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>在用Android studio查看<code>Displayed</code>时，需要禁用过滤器。因为是系统服务器为此提供服务。下图显示了如何禁用过滤器，以及显示了<code>Displayed</code>日志。<br><img src="/images/APP性能优化02.png" alt=""></p>
+<p>在<code>Displayed</code>值的时间内不一定加载并显示了所有资源。布局文件中未引用的资源或APP作为部分对象初始化的资源并没有加载。这是因为加载他们是内联过程（inline process）,不会阻塞APP的初始化显示。</p>
+<p>有时，<code>Displayed</code>这行日志会显示一些附加信息。例如：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ActivityManager: Displayed com.android.myexample/.StartupTiming: +3s534ms (total +1m22s643ms)</span><br></pre></td></tr></table></figure></p>
+<p>你也可以使用adb命令查看你的APP启动的时间。如下所示：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">adb [-d|-e|-s &lt;serialNumber&gt;] shell am start -S -W</span><br><span class="line">com.example.app/.MainActivity</span><br><span class="line">-c android.intent.category.LAUNCHER</span><br><span class="line">-a android.intent.action.MAIN</span><br></pre></td></tr></table></figure></p>
+<p>控制台会输出以下内容：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Starting: Intent</span><br><span class="line">Activity: com.example.app/.MainActivity</span><br><span class="line">ThisTime: 2044</span><br><span class="line">TotalTime: 2044</span><br><span class="line">WaitTime: 2054</span><br><span class="line">Complete</span><br></pre></td></tr></table></figure></p>
+<p><code>-c</code>和<code>-a</code>参数是可选的，指定相应的<code>&lt;category&gt;</code>和<code>&lt;action&gt;</code>。</p>
+<h4 id="完全显示时间（Time-to-full-display）"><a href="#完全显示时间（Time-to-full-display）" class="headerlink" title="完全显示时间（Time to full display）"></a>完全显示时间（Time to full display）</h4><p>你可以使用<code>reportFullyDrawn（）</code>方法来测量应用程序启动和完整显示所有资源和视图层次结构之间所用的时间。</p>
+<h2 id="常见问题分析"><a href="#常见问题分析" class="headerlink" title="常见问题分析"></a>常见问题分析</h2><p>本节讨论几个常见的影响APP启动性能的问题。这些问题主要涉及初始化app和Activity对象，以及屏幕的加载。</p>
+<h3 id="app初始化"><a href="#app初始化" class="headerlink" title="app初始化"></a>app初始化</h3><p>当你重写<code>Application</code>类，执行繁重的任务，复杂的逻辑时，启动性能问题就会凸显出来了。如果你在自定义<code>Application</code>中执行暂时不需要的初始化，那么就会增加启动时间。有些初始化是完全不必要的。</p>
+<h3 id="Activity"><a href="#Activity" class="headerlink" title="Activity"></a>Activity</h3><p>一般在Activity的<code>onCreate()</code>方法中往往会处理很多耗时任务。</p>
+<ul>
+<li>布局太复杂</li>
+<li>磁盘读写，网络I/O</li>
+<li>加载并解码bitmap</li>
+<li>栅格化VectorDrawable对象。</li>
+<li>初始化Activity的其他子系统</li>
+</ul>
+<p>解决方式如下：</p>
+<ul>
+<li>减少布局层级。使用<code>&lt;merge&gt;</code>，ViewStub， LinearLayout-&gt;RelativeLayout，ConstraintLayout等。常用工具Layout Inspector，Hierarchy Viewer。</li>
+<li>异步加载资源；先加载部分View，对于比较耗时的，延迟加载</li>
+</ul>
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ul>
+<li>App Startup Time</li>
+<li>Android性能优化典范</li>
+</ul>
+</div><div class="tags"><a href="/tags/Android/">Android</a><a href="/tags/性能优化/">性能优化</a></div><div class="post-nav"><a class="pre" href="/2018/05/14/Java 虚拟机运行时数据区/">Java 虚拟机运行时数据区</a><a class="next" href="/2018/04/28/管理应用程序内存/">管理应用程序内存</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form class="search-form" action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="https://nxiangbo.github.io"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Android/">Android</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Java/">Java</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Android/" style="font-size: 15px;">Android</a> <a href="/tags/性能优化/" style="font-size: 15px;">性能优化</a> <a href="/tags/strictmode/" style="font-size: 15px;">strictmode</a> <a href="/tags/Java/" style="font-size: 15px;">Java</a> <a href="/tags/反射/" style="font-size: 15px;">反射</a> <a href="/tags/Java虚拟机/" style="font-size: 15px;">Java虚拟机</a> <a href="/tags/内存模型/" style="font-size: 15px;">内存模型</a> <a href="/tags/内存/" style="font-size: 15px;">内存</a> <a href="/tags/UI/" style="font-size: 15px;">UI</a> <a href="/tags/适配/" style="font-size: 15px;">适配</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/06/07/Java 反射机制/">Java 反射机制</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/06/05/Android 屏幕适配/">Android 屏幕适配</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/05/25/Java类加载机制/">Java类加载机制</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/05/23/Java内存模型/">Java内存模型</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/05/14/Java虚拟机垃圾回收机制/">Java虚拟机垃圾回收机制</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/05/14/Java 虚拟机运行时数据区/">Java 虚拟机运行时数据区</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/05/09/优化APP启动时间/">优化APP启动时间</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/28/管理应用程序内存/">管理应用程序内存</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/26/Android 内存管理/">Android 内存管理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/20/Android 性能优化 之 StrictMode/">Android 性能优化 之 StrictMode</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://www.example1.com/" title="site-name1" target="_blank">site-name1</a><ul></ul><a href="http://www.example2.com/" title="site-name2" target="_blank">site-name2</a><ul></ul><a href="http://www.example3.com/" title="site-name3" target="_blank">site-name3</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2018 <a href="/." rel="nofollow">学而时习之.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/3.3.5/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/fancybox/3.3.5/jquery.fancybox.min.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
